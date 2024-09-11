@@ -81,90 +81,205 @@ mod company {
     }
 }
 
+mod gui {
+
+    #[derive(Debug, Clone)]
+    pub enum UserMessage {
+        Id(String),
+        Name(String),
+        Position(String),
+    }
+
+    #[derive(Debug, Clone)]
+    pub enum ShipMessage {
+        Id(String),
+        ShipmentId(String),
+        Quantity(String),
+        Contents(String),
+    }
+}
+
 use colored::Colorize;
 use company::*;
+use fltk::{
+    app, button::Button, frame::Frame, group::Flex, input::Input, output::Output, prelude::*,
+    window::Window,
+};
+use gui::*;
 use rusqlite::{self, Connection};
-use std::env::args;
+use std::{env::args, io::Bytes, os::unix::fs::FileExt};
 
 fn main() {
-    let option = args().nth(1).expect(&"Please enter option".red());
-    if option == "--help" {
-        println!("Here is the manual");
-        std::process::exit(3);
-    }
+    let app = app::App::default();
+    let mut window = Window::new(1000, 1000, 1000, 1000, "Sqlite Interface");
 
-    if option == "-add_shipment" {
-        let current_shipment = get_shipment_info();
-        println!(
-            "{} {}, {}, {}, {}",
-            "Shipment Entry: ".yellow(),
-            current_shipment.id,
-            current_shipment.shipment_id,
-            current_shipment.contents,
-            current_shipment.quantity
-        );
+    let mut flex = Flex::default()
+        .with_size(900, 500)
+        .center_of_parent()
+        .column();
 
-        let path = "./company.sqlite3";
-        let db = Connection::open(path).expect("Could not open database");
+    flex.set_spacing(100);
 
-        // decided to use format! instead of putting the parameters in with params! and using th 1?
-        // format that the library uses. Either way fors to format the query. May change it later
-        let shipments_entry = db
-            .execute(
-                &format!(
-                    "INSERT INTO shippments (id, shipment_id) VALUES ({}, {})",
-                    current_shipment.id, current_shipment.shipment_id,
-                ),
-                (),
-            )
-            .unwrap();
+    let mut add_user_box = Flex::default()
+        .with_size(400, 30)
+        .center_of_parent()
+        .row()
+        .with_label("Add User");
+    let mut id1 = Input::default().with_label("ID");
+    let space = Frame::new(100, 100, 100, 30, "");
+    let mut name = Input::default().with_label("Name");
+    let space = Frame::new(100, 100, 100, 30, "");
+    let mut position = Input::default().with_label("Position");
+    let space = Frame::new(100, 100, 100, 30, "");
 
-        let contents_entry = db
-                    .execute(
-                        &format!(
-                            "INSERT INTO contents (shipment_id, contents, quantity) VALUES ({}, '{}', '{}')",
-                            &current_shipment.shipment_id,
-                            &current_shipment.contents,
-                            &current_shipment.quantity
-                        ),
-                        (),
-                    )
-                    .unwrap();
+    add_user_box.end();
 
-        if shipments_entry == 1 && contents_entry == 1 {
-            println!("{}", "Entry Success".green());
-        } else {
-            println!("{}", "Shipment Entry Failed".red());
+    let mut user_output = Flex::default().with_size(400, 200).column();
+    let mut user_out = Output::default();
+    let user_submit = Button::new(50, 100, 100, 200, "Submit");
+    user_output.end();
+
+    let mut add_shipment_box = Flex::default()
+        .with_size(400, 30)
+        .center_of_parent()
+        .row()
+        .with_label("Add Shipment");
+    let mut id2 = Input::default().with_label("ID");
+    let space = Frame::new(50, 50, 50, 30, "");
+    let mut shipment_id = Input::default().with_label("Name");
+    let space = Frame::new(50, 50, 50, 30, "");
+    let mut quantity = Input::default().with_label("Position");
+    let space = Frame::new(50, 50, 50, 30, "");
+    let mut contents = Input::default().with_label("Contents");
+    let space = Frame::new(50, 50, 50, 30, "");
+
+    add_shipment_box.end();
+
+    let mut shipment_output = Flex::default().with_size(400, 200).column();
+    let mut shipment_out = Output::default();
+    let shipment_submit = Button::new(50, 100, 100, 200, "Submit");
+    shipment_output.end();
+
+    flex.end();
+
+    window.end();
+    window.show();
+
+    let (us, ur) = app::channel::<UserMessage>();
+    let (ss, sr) = app::channel::<UserMessage>();
+
+    id1.emit(us.clone(), UserMessage::Id(String::new()));
+    name.emit(us.clone(), UserMessage::Name(String::new()));
+    position.emit(us, UserMessage::Position(String::new()));
+
+    while app.wait() {
+        if let Some(user_message) = ur.recv() {
+            match user_message {
+                UserMessage::Id(_) => user_out.set_value(&format!(
+                    "{} {} {}",
+                    &id1.value(),
+                    &name.value(),
+                    &position.value()
+                )),
+                UserMessage::Name(_) => user_out.set_value(&format!(
+                    "{} {} {}",
+                    &id1.value(),
+                    &name.value(),
+                    &position.value()
+                )),
+
+                UserMessage::Position(_) => user_out.set_value(&format!(
+                    "{} {} {}",
+                    &id1.value(),
+                    &name.value(),
+                    &position.value()
+                )),
+            }
         }
     }
-    if option == "-add_user" {
-        let current_person = get_personel_info();
 
-        println!(
-            "{} {}, {}, {}",
-            "Personel Entry: ".yellow(),
-            current_person.id,
-            current_person.name,
-            current_person.position
-        );
+    app.run().unwrap();
 
-        let path = "./company.sqlite3";
-        let db = Connection::open(path).expect("Could not open database");
-
-        let personel_entry = db
-            .execute(
-                &format!(
-                    "INSERT INTO personel (id, name, position) VALUES ({}, '{}', '{}')",
-                    &current_person.id, &current_person.name, &current_person.position,
-                ),
-                (),
-            )
-            .unwrap();
-
-        if personel_entry == 1 {
-            println!("{}", "Entry Success".green());
-        } else {
-            println!("{}", "Shipment Entry Failed".red());
+    /*
+        let option = args().nth(1).expect(&"Please enter option".red());
+        if option == "--help" {
+            println!("Here is the manual");
+            std::process::exit(3);
         }
-    }
+
+        if option == "-add_shipment" {
+            let current_shipment = get_shipment_info();
+            println!(
+                "{} {}, {}, {}, {}",
+                "Shipment Entry: ".yellow(),
+                current_shipment.id,
+                current_shipment.shipment_id,
+                current_shipment.contents,
+                current_shipment.quantity
+            );
+
+            let path = "./company.sqlite3";
+            let db = Connection::open(path).expect("Could not open database");
+
+            // decided to use format! instead of putting the parameters in with params! and using th 1?
+            // format that the library uses. Either way fors to format the query. May change it later
+            let shipments_entry = db
+                .execute(
+                    &format!(
+                        "INSERT INTO shippments (id, shipment_id) VALUES ({}, {})",
+                        current_shipment.id, current_shipment.shipment_id,
+                    ),
+                    (),
+                )
+                .unwrap();
+
+            let contents_entry = db
+                        .execute(
+                            &format!(
+                                "INSERT INTO contents (shipment_id, contents, quantity) VALUES ({}, '{}', '{}')",
+                                &current_shipment.shipment_id,
+                                &current_shipment.contents,
+                                &current_shipment.quantity
+                            ),
+                            (),
+                        )
+                        .unwrap();
+
+            if shipments_entry == 1 && contents_entry == 1 {
+                println!("{}", "Entry Success".green());
+            } else {
+                println!("{}", "Shipment Entry Failed".red());
+            }
+        }
+        if option == "-add_user" {
+            let current_person = get_personel_info();
+
+            println!(
+                "{} {}, {}, {}",
+                "Personel Entry: ".yellow(),
+                current_person.id,
+                current_person.name,
+                current_person.position
+            );
+
+            let path = "./company.sqlite3";
+            let db = Connection::open(path).expect("Could not open database");
+
+            let personel_entry = db
+                .execute(
+                    &format!(
+                        "INSERT INTO personel (id, name, position) VALUES ({}, '{}', '{}')",
+                        &current_person.id, &current_person.name, &current_person.position,
+                    ),
+                    (),
+                )
+                .unwrap();
+
+            if personel_entry == 1 {
+                println!("{}", "Entry Success".green());
+            } else {
+                println!("{}", "Shipment Entry Failed".red());
+            }
+        }
+    */
 }
