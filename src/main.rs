@@ -3,7 +3,7 @@
 // to install lqlite3 you will also need the base and dev librarys for sqlite3, for some reasone
 // they are not included when you install sqlite3 cause they are C headers? anyways...
 //// apt install libsqlite3-0 libsqlite3-dev
-
+/*
 mod company {
     use colored::Colorize;
     use std::io::stdin;
@@ -81,21 +81,113 @@ mod company {
     }
 }
 
+*/
+
 mod gui {
 
-    #[derive(Debug, Clone)]
-    pub enum UserMessage {
-        Id(String),
-        Name(String),
-        Position(String),
+    #[derive(Debug, Clone, Copy)]
+    pub enum Submission {
+        User,
+        Shipment,
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Copy)]
+    pub enum UserMessage {
+        Id,
+        Name,
+        Position,
+    }
+
+    #[derive(Debug, Clone, Copy)]
     pub enum ShipMessage {
-        Id(String),
-        ShipmentId(String),
-        Quantity(String),
-        Contents(String),
+        Id,
+        ShipmentId,
+        Quantity,
+        Contents,
+    }
+}
+
+mod company {
+
+    use rusqlite::{self, Connection};
+
+    #[derive(Clone)]
+    pub struct Shipment {
+        pub id: i32,
+        pub shipment_id: i32,
+        pub contents: String,
+        pub quantity: String,
+    }
+
+    #[derive(Clone)]
+    pub struct Personel {
+        pub id: i32,
+        pub name: String,
+        pub position: String,
+    }
+
+    pub fn generate_shipment(
+        id: &i32,
+        shipment_id: &i32,
+        contents: &str,
+        quantity: &str,
+    ) -> Shipment {
+        Shipment {
+            id: *id,
+            shipment_id: *shipment_id,
+            contents: contents.to_string(),
+            quantity: quantity.to_string(),
+        }
+    }
+
+    pub fn generate_personel(id: &i32, name: &str, position: &str) -> Personel {
+        Personel {
+            id: *id,
+            name: name.to_string(),
+            position: position.to_string(),
+        }
+    }
+
+    impl Personel {
+        pub fn personel_entry(&self, db: Connection) -> usize {
+            let personel_entry = db
+                .execute(
+                    &format!(
+                        "INSERT INTO personel (id, name, position) VALUES ({}, '{}', '{}')",
+                        &self.id, &self.name, &self.position,
+                    ),
+                    (),
+                )
+                .unwrap();
+            personel_entry
+        }
+    }
+
+    impl Shipment {
+        pub fn shipment_enty(&self, db: Connection) -> (usize, usize) {
+            let shipments_entry = db
+                .execute(
+                    &format!(
+                        "INSERT INTO shippments (id, shipment_id) VALUES ({}, {})",
+                        self.id, self.shipment_id,
+                    ),
+                    (),
+                )
+                .unwrap();
+
+            let contents_entry = db
+                        .execute(
+                            &format!(
+                                "INSERT INTO contents (shipment_id, contents, quantity) VALUES ({}, '{}', '{}')",
+                                &self.shipment_id,
+                                &self.contents,
+                                &self.quantity
+                            ),
+                            (),
+                        )
+                        .unwrap();
+            (shipments_entry, contents_entry)
+        }
     }
 }
 
@@ -120,44 +212,47 @@ fn main() {
 
     flex.set_spacing(100);
 
-    let mut add_user_box = Flex::default()
+    let add_user_box = Flex::default()
         .with_size(400, 30)
         .center_of_parent()
         .row()
         .with_label("Add User");
     let mut id1 = Input::default().with_label("ID");
-    let space = Frame::new(100, 100, 100, 30, "");
+    let _space = Frame::new(100, 100, 100, 30, "");
+
+    // Make the id inputs only int
+
     let mut name = Input::default().with_label("Name");
-    let space = Frame::new(100, 100, 100, 30, "");
+    let _space = Frame::new(100, 100, 100, 30, "");
     let mut position = Input::default().with_label("Position");
-    let space = Frame::new(100, 100, 100, 30, "");
+    let _space = Frame::new(100, 100, 100, 30, "");
 
     add_user_box.end();
 
-    let mut user_output = Flex::default().with_size(400, 200).column();
+    let user_output = Flex::default().with_size(400, 200).column();
     let mut user_out = Output::default();
-    let user_submit = Button::new(50, 100, 100, 200, "Submit");
+    let mut user_submit = Button::new(50, 100, 100, 200, "Submit");
     user_output.end();
 
-    let mut add_shipment_box = Flex::default()
+    let add_shipment_box = Flex::default()
         .with_size(400, 30)
         .center_of_parent()
         .row()
         .with_label("Add Shipment");
     let mut id2 = Input::default().with_label("ID");
-    let space = Frame::new(50, 50, 50, 30, "");
-    let mut shipment_id = Input::default().with_label("Name");
-    let space = Frame::new(50, 50, 50, 30, "");
-    let mut quantity = Input::default().with_label("Position");
-    let space = Frame::new(50, 50, 50, 30, "");
+    let _space = Frame::new(50, 50, 50, 30, "");
+    let mut shipment_id = Input::default().with_label("Shipment ID");
+    let _space = Frame::new(50, 50, 50, 30, "");
+    let mut quantity = Input::default().with_label("Quantity");
+    let _space = Frame::new(50, 50, 50, 30, "");
     let mut contents = Input::default().with_label("Contents");
-    let space = Frame::new(50, 50, 50, 30, "");
+    let _space = Frame::new(50, 50, 50, 30, "");
 
     add_shipment_box.end();
 
-    let mut shipment_output = Flex::default().with_size(400, 200).column();
+    let shipment_output = Flex::default().with_size(400, 200).column();
     let mut shipment_out = Output::default();
-    let shipment_submit = Button::new(50, 100, 100, 200, "Submit");
+    let mut shipment_submit = Button::new(50, 100, 100, 200, "Submit");
     shipment_output.end();
 
     flex.end();
@@ -165,35 +260,119 @@ fn main() {
     window.end();
     window.show();
 
-    let (us, ur) = app::channel::<UserMessage>();
-    let (ss, sr) = app::channel::<UserMessage>();
+    //open db here?
 
-    id1.emit(us.clone(), UserMessage::Id(String::new()));
-    name.emit(us.clone(), UserMessage::Name(String::new()));
-    position.emit(us, UserMessage::Position(String::new()));
+    let (us, ur) = app::channel::<UserMessage>();
+    let (ss, sr) = app::channel::<ShipMessage>();
+    let (sub_send, sub_rec) = app::channel::<Submission>();
+
+    id1.emit(us.clone(), UserMessage::Id);
+    name.emit(us.clone(), UserMessage::Name);
+    position.emit(us, UserMessage::Position);
+
+    id2.emit(ss, ShipMessage::Id);
+    shipment_id.emit(ss, ShipMessage::ShipmentId);
+    quantity.emit(ss, ShipMessage::Quantity);
+    contents.emit(ss, ShipMessage::Contents);
+
+    user_submit.emit(sub_send, Submission::User);
+    shipment_submit.emit(sub_send, Submission::Shipment);
 
     while app.wait() {
-        if let Some(user_message) = ur.recv() {
-            match user_message {
-                UserMessage::Id(_) => user_out.set_value(&format!(
-                    "{} {} {}",
-                    &id1.value(),
-                    &name.value(),
-                    &position.value()
-                )),
-                UserMessage::Name(_) => user_out.set_value(&format!(
-                    "{} {} {}",
-                    &id1.value(),
-                    &name.value(),
-                    &position.value()
-                )),
+        match ur.recv().unwrap() | sr.recv().unwrap() | sub_rec.recv().unwrap() {
+            UserMessage::Id | UserMessage::Name | UserMessage::Position => {
+                if let Some(user_message) = ur.recv() {
+                    match user_message {
+                        UserMessage::Id => user_out.set_value(&format!(
+                            "{} {} {}",
+                            &id1.value(),
+                            &name.value(),
+                            &position.value()
+                        )),
+                        UserMessage::Name => user_out.set_value(&format!(
+                            "{} {} {}",
+                            &id1.value(),
+                            &name.value(),
+                            &position.value()
+                        )),
 
-                UserMessage::Position(_) => user_out.set_value(&format!(
-                    "{} {} {}",
-                    &id1.value(),
-                    &name.value(),
-                    &position.value()
-                )),
+                        UserMessage::Position => user_out.set_value(&format!(
+                            "{} {} {}",
+                            &id1.value(),
+                            &name.value(),
+                            &position.value()
+                        )),
+                    }
+                }
+            }
+
+            ShipMessage::Id
+            | ShipMessage::Contents
+            | ShipMessage::Quantity
+            | ShipMessage::Contents => {
+                if let Some(shipment_message) = sr.recv() {
+                    match shipment_message {
+                        ShipMessage::Id => shipment_out.set_value(&format!(
+                            "{} {} {} {}",
+                            &id1.value(),
+                            &shipment_id.value(),
+                            &quantity.value(),
+                            &contents.value()
+                        )),
+
+                        ShipMessage::ShipmentId => shipment_out.set_value(&format!(
+                            "{} {} {} {}",
+                            &id1.value(),
+                            &shipment_id.value(),
+                            &quantity.value(),
+                            &contents.value()
+                        )),
+
+                        ShipMessage::Quantity => shipment_out.set_value(&format!(
+                            "{} {} {} {}",
+                            &id1.value(),
+                            &shipment_id.value(),
+                            &quantity.value(),
+                            &contents.value()
+                        )),
+
+                        ShipMessage::Contents => shipment_out.set_value(&format!(
+                            "{} {} {} {}",
+                            &id1.value(),
+                            &shipment_id.value(),
+                            &quantity.value(),
+                            &contents.value()
+                        )),
+                    }
+                }
+            }
+
+            Submission::Shipment | Submission::User => {
+                if let Some(submission_message) = sub_rec.recv() {
+                    let path = "./company.sqlite3";
+                    let db = Connection::open(path).expect("Could not open database");
+                    match submission_message {
+                        Submission::User => {
+                            let personel = generate_personel(
+                                &id1.value().parse().unwrap(),
+                                &name.value(),
+                                &position.value(),
+                            );
+                            let personel_entry = personel.personel_entry(db);
+                            assert!(personel_entry == 0, "Database entry failed");
+                        }
+                        Submission::Shipment => {
+                            let shipment = generate_shipment(
+                                &id2.value().parse().unwrap(),
+                                &shipment_id.value().parse().unwrap(),
+                                &contents.value(),
+                                &quantity.value(),
+                            );
+                            let shipment_entry = shipment.shipment_enty(db);
+                            assert!(shipment_entry == (0, 0), "Database entry failed");
+                        }
+                    }
+                }
             }
         }
     }
