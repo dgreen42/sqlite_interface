@@ -86,29 +86,24 @@ mod company {
 mod gui {
 
     #[derive(Debug, Clone, Copy)]
-    pub enum Submission {
+    pub enum Message {
         User,
         Shipment,
-    }
-
-    #[derive(Debug, Clone, Copy)]
-    pub enum UserMessage {
         Id,
+        Id2,
         Name,
         Position,
-    }
-
-    #[derive(Debug, Clone, Copy)]
-    pub enum ShipMessage {
-        Id,
         ShipmentId,
         Quantity,
         Contents,
+        Table,
+        Menu,
     }
 }
 
 mod company {
 
+    use ::fltk::table::Table;
     use rusqlite::{self, Connection};
 
     #[derive(Clone)]
@@ -189,12 +184,25 @@ mod company {
             (shipments_entry, contents_entry)
         }
     }
+
+    pub fn generate_table_size(db: Connection, option: String, table: Table) {
+        let table_contents = db.execute(&format!("SELECT * FROM {}", option), ());
+        println!("{:?}", table_contents);
+    }
 }
 
 use colored::Colorize;
 use company::*;
 use fltk::{
-    app, button::Button, frame::Frame, group::Flex, input::Input, output::Output, prelude::*,
+    app,
+    button::Button,
+    frame::Frame,
+    group::Flex,
+    input::Input,
+    menu::{Choice, MenuBar},
+    output::Output,
+    prelude::*,
+    table::Table,
     window::Window,
 };
 use gui::*;
@@ -206,11 +214,11 @@ fn main() {
     let mut window = Window::new(1000, 1000, 1000, 1000, "Sqlite Interface");
 
     let mut flex = Flex::default()
-        .with_size(900, 500)
+        .with_size(900, 900)
         .center_of_parent()
         .column();
 
-    flex.set_spacing(100);
+    flex.set_spacing(20);
 
     let add_user_box = Flex::default()
         .with_size(400, 30)
@@ -229,9 +237,13 @@ fn main() {
 
     add_user_box.end();
 
-    let user_output = Flex::default().with_size(400, 200).column();
+    let user_output = Flex::default()
+        .with_size(400, 200)
+        .column()
+        .with_label("Data Base Query");
     let mut user_out = Output::default();
     let mut user_submit = Button::new(50, 100, 100, 200, "Submit");
+
     user_output.end();
 
     let add_shipment_box = Flex::default()
@@ -250,10 +262,33 @@ fn main() {
 
     add_shipment_box.end();
 
-    let shipment_output = Flex::default().with_size(400, 200).column();
+    let shipment_output = Flex::default()
+        .with_size(400, 200)
+        .column()
+        .with_label("Data Base Query");
     let mut shipment_out = Output::default();
     let mut shipment_submit = Button::new(50, 100, 100, 200, "Submit");
+
     shipment_output.end();
+
+    let menu_flex = Flex::default().with_size(50, 50).center_of_parent().row();
+
+    let mut table_menu = MenuBar::default()
+        .with_label("Select Data to Display")
+        .center_of_parent()
+        .with_size(50, 50);
+    table_menu.add_choice("Personel|Shipments");
+
+    menu_flex.end();
+
+    let mut table = Table::default()
+        .with_size(600, 600)
+        .center_of_parent()
+        .with_label("Data");
+    table.set_rows(50);
+    table.set_cols(50);
+
+    table.end();
 
     flex.end();
 
@@ -262,117 +297,103 @@ fn main() {
 
     //open db here?
 
-    let (us, ur) = app::channel::<UserMessage>();
-    let (ss, sr) = app::channel::<ShipMessage>();
-    let (sub_send, sub_rec) = app::channel::<Submission>();
+    let (send, recieve) = app::channel::<Message>();
 
-    id1.emit(us.clone(), UserMessage::Id);
-    name.emit(us.clone(), UserMessage::Name);
-    position.emit(us, UserMessage::Position);
+    id1.emit(send, Message::Id);
+    name.emit(send, Message::Name);
+    position.emit(send, Message::Position);
 
-    id2.emit(ss, ShipMessage::Id);
-    shipment_id.emit(ss, ShipMessage::ShipmentId);
-    quantity.emit(ss, ShipMessage::Quantity);
-    contents.emit(ss, ShipMessage::Contents);
+    id2.emit(send, Message::Id);
+    shipment_id.emit(send, Message::ShipmentId);
+    quantity.emit(send, Message::Quantity);
+    contents.emit(send, Message::Contents);
 
-    user_submit.emit(sub_send, Submission::User);
-    shipment_submit.emit(sub_send, Submission::Shipment);
+    user_submit.emit(send, Message::User);
+    shipment_submit.emit(send, Message::Shipment);
+
+    table_menu.emit(send, Message::Menu);
+    table.emit(send, Message::Table);
 
     while app.wait() {
-        match ur.recv().unwrap() | sr.recv().unwrap() | sub_rec.recv().unwrap() {
-            UserMessage::Id | UserMessage::Name | UserMessage::Position => {
-                if let Some(user_message) = ur.recv() {
-                    match user_message {
-                        UserMessage::Id => user_out.set_value(&format!(
-                            "{} {} {}",
-                            &id1.value(),
-                            &name.value(),
-                            &position.value()
-                        )),
-                        UserMessage::Name => user_out.set_value(&format!(
-                            "{} {} {}",
-                            &id1.value(),
-                            &name.value(),
-                            &position.value()
-                        )),
+        let path = "./company.sqlite3";
+        let db = Connection::open(path).expect("Could not open database");
+        if let Some(user_message) = recieve.recv() {
+            match user_message {
+                Message::Id => user_out.set_value(&format!(
+                    "INSERT INTO personel VALUES ({}, {}, {})",
+                    &id1.value(),
+                    &name.value(),
+                    &position.value()
+                )),
+                Message::Name => user_out.set_value(&format!(
+                    "INSERT INTO personel VALUES ({}, {}, {})",
+                    &id1.value(),
+                    &name.value(),
+                    &position.value()
+                )),
 
-                        UserMessage::Position => user_out.set_value(&format!(
-                            "{} {} {}",
-                            &id1.value(),
-                            &name.value(),
-                            &position.value()
-                        )),
-                    }
+                Message::Position => user_out.set_value(&format!(
+                    "INSERT INTO personel VALUES ({}, {}, {})",
+                    &id1.value(),
+                    &name.value(),
+                    &position.value()
+                )),
+
+                Message::Id2 => shipment_out.set_value(&format!(
+                    "INSERT INTO shippments VALUES ({}, {}, {}, {})",
+                    &id2.value(),
+                    &shipment_id.value(),
+                    &quantity.value(),
+                    &contents.value()
+                )),
+
+                Message::ShipmentId => shipment_out.set_value(&format!(
+                    "INSERT INTO shippments VALUES ({}, {}, {}, {})",
+                    &id2.value(),
+                    &shipment_id.value(),
+                    &quantity.value(),
+                    &contents.value()
+                )),
+
+                Message::Quantity => shipment_out.set_value(&format!(
+                    "INSERT INTO shippments VALUES ({}, {}, {}, {})",
+                    &id2.value(),
+                    &shipment_id.value(),
+                    &quantity.value(),
+                    &contents.value()
+                )),
+
+                Message::Contents => shipment_out.set_value(&format!(
+                    "INSERT INTO shippments VALUES ({}, {}, {}, {})",
+                    &id2.value(),
+                    &shipment_id.value(),
+                    &quantity.value(),
+                    &contents.value()
+                )),
+
+                Message::User => {
+                    let personel = generate_personel(
+                        &id1.value().parse().unwrap(),
+                        &name.value(),
+                        &position.value(),
+                    );
+                    let personel_entry = personel.personel_entry(db);
+                    assert!(personel_entry == 1, "Database entry failed");
                 }
-            }
 
-            ShipMessage::Id
-            | ShipMessage::Contents
-            | ShipMessage::Quantity
-            | ShipMessage::Contents => {
-                if let Some(shipment_message) = sr.recv() {
-                    match shipment_message {
-                        ShipMessage::Id => shipment_out.set_value(&format!(
-                            "{} {} {} {}",
-                            &id1.value(),
-                            &shipment_id.value(),
-                            &quantity.value(),
-                            &contents.value()
-                        )),
-
-                        ShipMessage::ShipmentId => shipment_out.set_value(&format!(
-                            "{} {} {} {}",
-                            &id1.value(),
-                            &shipment_id.value(),
-                            &quantity.value(),
-                            &contents.value()
-                        )),
-
-                        ShipMessage::Quantity => shipment_out.set_value(&format!(
-                            "{} {} {} {}",
-                            &id1.value(),
-                            &shipment_id.value(),
-                            &quantity.value(),
-                            &contents.value()
-                        )),
-
-                        ShipMessage::Contents => shipment_out.set_value(&format!(
-                            "{} {} {} {}",
-                            &id1.value(),
-                            &shipment_id.value(),
-                            &quantity.value(),
-                            &contents.value()
-                        )),
-                    }
+                Message::Shipment => {
+                    let shipment = generate_shipment(
+                        &id2.value().parse().unwrap(),
+                        &shipment_id.value().parse().unwrap(),
+                        &contents.value(),
+                        &quantity.value(),
+                    );
+                    let shipment_entry = shipment.shipment_enty(db);
+                    assert!(shipment_entry == (1, 1), "Database entry failed");
                 }
-            }
 
-            Submission::Shipment | Submission::User => {
-                if let Some(submission_message) = sub_rec.recv() {
-                    let path = "./company.sqlite3";
-                    let db = Connection::open(path).expect("Could not open database");
-                    match submission_message {
-                        Submission::User => {
-                            let personel = generate_personel(
-                                &id1.value().parse().unwrap(),
-                                &name.value(),
-                                &position.value(),
-                            );
-                            let personel_entry = personel.personel_entry(db);
-                            assert!(personel_entry == 0, "Database entry failed");
-                        }
-                        Submission::Shipment => {
-                            let shipment = generate_shipment(
-                                &id2.value().parse().unwrap(),
-                                &shipment_id.value().parse().unwrap(),
-                                &contents.value(),
-                                &quantity.value(),
-                            );
-                            let shipment_entry = shipment.shipment_enty(db);
-                            assert!(shipment_entry == (0, 0), "Database entry failed");
-                        }
-                    }
-                }
+                Message::Table => {}
+                Message::Menu => {}
             }
         }
     }
