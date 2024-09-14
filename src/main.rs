@@ -103,8 +103,9 @@ mod gui {
 
 mod company {
 
-    use ::fltk::table::Table;
-    use rusqlite::{self, Connection};
+    use ::fltk::{draw, table::Table};
+    use fltk::enums;
+    use rusqlite::{self, Connection, Error};
 
     #[derive(Clone)]
     pub struct Shipment {
@@ -185,9 +186,86 @@ mod company {
         }
     }
 
-    pub fn generate_table_size(db: Connection, option: String, table: Table) {
-        let table_contents = db.execute(&format!("SELECT * FROM {}", option), ());
-        println!("{:?}", table_contents);
+    #[derive(Debug)]
+    pub struct Row {
+        pub id: i32,
+        pub name: String,
+        pub position: String,
+    }
+
+    pub fn generate_table(db: Connection, option: &str, message: i32) -> Vec<Row> {
+        let mut table_query = db.prepare(&format!("SELECT * FROM {}", option)).unwrap();
+        if message == 0 | 2 {
+            let table_iter = table_query
+                .query_map([], |row| {
+                    Ok(Row {
+                        id: row.get(0).unwrap(),
+                        name: row.get(1).unwrap(),
+                        position: row.get(2).unwrap(),
+                    })
+                })
+                .unwrap();
+            let mut table = Vec::new();
+            for row in table_iter {
+                table.push(row.unwrap());
+            }
+            table
+        } else if message == 1 {
+            let table_iter = table_query
+                .query_map([], |row| {
+                    Ok(Row {
+                        id: row.get(0).unwrap(),
+                        name: row.get(1).unwrap(),
+                        position: row.get(2).unwrap(),
+                    })
+                })
+                .unwrap();
+            let mut table = Vec::new();
+            for row in table_iter {
+                table.push(row.unwrap());
+            }
+            table
+        } else {
+            let empty_row = Row {
+                id: 0,
+                name: String::from("NA"),
+                position: String::from("NA"),
+            };
+            let mut empty_vec = Vec::new();
+            empty_vec.push(empty_row);
+            empty_vec
+        }
+    }
+
+    pub fn draw_header(txt: &str, x: i32, y: i32, w: i32, h: i32) {
+        draw::push_clip(x, y, w, h);
+        draw::draw_box(
+            enums::FrameType::ThinUpBox,
+            x,
+            y,
+            w,
+            h,
+            enums::Color::FrameDefault,
+        );
+        draw::set_draw_color(enums::Color::Black);
+        draw::set_font(enums::Font::Helvetica, 14);
+        draw::draw_text2(txt, x, y, w, h, enums::Align::Center);
+        draw::pop_clip();
+    }
+
+    pub fn draw_data(txt: &str, x: i32, y: i32, w: i32, h: i32, selected: bool) {
+        draw::push_clip(x, y, w, h);
+        if selected {
+            draw::set_draw_color(enums::Color::from_u32(0x00D3_D3D3));
+        } else {
+            draw::set_draw_color(enums::Color::White);
+        }
+        draw::draw_rectf(x, y, w, h);
+        draw::set_draw_color(enums::Color::Gray0);
+        draw::set_font(enums::Font::Helvetica, 14);
+        draw::draw_text2(txt, x, y, w, h, enums::Align::Center);
+        draw::draw_rect(x, y, w, h);
+        draw::pop_clip();
     }
 }
 
@@ -205,40 +283,41 @@ use fltk::{
     table::Table,
     window::Window,
 };
-use gui::*;
+pub use gui::*;
 use rusqlite::{self, Connection};
 use std::{env::args, io::Bytes, os::unix::fs::FileExt};
 
 fn main() {
     let app = app::App::default();
-    let mut window = Window::new(1000, 1000, 1000, 1000, "Sqlite Interface");
+    let mut window = Window::new(500, 700, 900, 800, "Sqlite Interface");
 
-    let mut flex = Flex::default()
-        .with_size(900, 900)
-        .center_of_parent()
-        .column();
+    let flex = Flex::default()
+        .with_size(800, 700)
+        .column()
+        .center_of_parent();
 
-    flex.set_spacing(20);
+    let mut flex_db_entry = Flex::default().with_size(800, 300).column();
+
+    flex_db_entry.set_spacing(50);
 
     let add_user_box = Flex::default()
-        .with_size(400, 30)
-        .center_of_parent()
+        .with_size(800, 200)
         .row()
         .with_label("Add User");
     let mut id1 = Input::default().with_label("ID");
-    let _space = Frame::new(100, 100, 100, 30, "");
+    let _space = Frame::default();
 
     // Make the id inputs only int
 
     let mut name = Input::default().with_label("Name");
-    let _space = Frame::new(100, 100, 100, 30, "");
+    let _space = Frame::default();
     let mut position = Input::default().with_label("Position");
-    let _space = Frame::new(100, 100, 100, 30, "");
+    let _space = Frame::default();
 
     add_user_box.end();
 
     let user_output = Flex::default()
-        .with_size(400, 200)
+        .with_size(800, 100)
         .column()
         .with_label("Data Base Query");
     let mut user_out = Output::default();
@@ -247,23 +326,22 @@ fn main() {
     user_output.end();
 
     let add_shipment_box = Flex::default()
-        .with_size(400, 30)
-        .center_of_parent()
+        .with_size(800, 200)
         .row()
         .with_label("Add Shipment");
     let mut id2 = Input::default().with_label("ID");
-    let _space = Frame::new(50, 50, 50, 30, "");
+    let _space = Frame::default();
     let mut shipment_id = Input::default().with_label("Shipment ID");
-    let _space = Frame::new(50, 50, 50, 30, "");
+    let _space = Frame::default();
     let mut quantity = Input::default().with_label("Quantity");
-    let _space = Frame::new(50, 50, 50, 30, "");
+    let _space = Frame::default();
     let mut contents = Input::default().with_label("Contents");
-    let _space = Frame::new(50, 50, 50, 30, "");
+    let _space = Frame::default();
 
     add_shipment_box.end();
 
     let shipment_output = Flex::default()
-        .with_size(400, 200)
+        .with_size(800, 100)
         .column()
         .with_label("Data Base Query");
     let mut shipment_out = Output::default();
@@ -271,27 +349,33 @@ fn main() {
 
     shipment_output.end();
 
-    let menu_flex = Flex::default().with_size(50, 50).center_of_parent().row();
+    flex_db_entry.end();
 
-    let mut table_menu = MenuBar::default()
-        .with_label("Select Data to Display")
-        .center_of_parent()
-        .with_size(50, 50);
-    table_menu.add_choice("Personel|Shipments");
+    let flex_data = Flex::default()
+        .with_size(800, 300)
+        .column()
+        .below_of(&flex_db_entry, 20);
+
+    let menu_flex = Flex::new(100, 100, 800, 100, "").center_of_parent();
+
+    let _space = Frame::default();
+    let _space2 = Frame::new(100, 100, 100, 100, "Select Data to Display");
+    let mut table_menu = MenuBar::new(100, 100, 800, 100, "");
+    table_menu.add_choice("Personel|Shipments|Contents");
 
     menu_flex.end();
 
-    let mut table = Table::default()
-        .with_size(600, 600)
-        .center_of_parent()
-        .with_label("Data");
+    let mut table = Table::default().with_size(800, 200);
     table.set_rows(50);
     table.set_cols(50);
 
     table.end();
 
+    flex_data.end();
+
     flex.end();
 
+    window.make_resizable(true);
     window.end();
     window.show();
 
@@ -317,6 +401,7 @@ fn main() {
     while app.wait() {
         let path = "./company.sqlite3";
         let db = Connection::open(path).expect("Could not open database");
+
         if let Some(user_message) = recieve.recv() {
             match user_message {
                 Message::Id => user_out.set_value(&format!(
@@ -392,8 +477,46 @@ fn main() {
                     assert!(shipment_entry == (1, 1), "Database entry failed");
                 }
 
+                Message::Menu => {
+                    // 0 = personel
+                    // 1 = shipments
+                    println!("{:?}", table_menu.value().to_string());
+                    match table_menu.value().to_string().as_ref() {
+                        "0" => {
+                            let data = generate_table(
+                                db,
+                                "personel",
+                                table_menu.value().to_string().parse::<i32>().unwrap(),
+                            );
+                            for row in data {
+                                println!("{:?}", row);
+                            }
+                        }
+
+                        "1" => {
+                            let data = generate_table(
+                                db,
+                                "shippments",
+                                table_menu.value().to_string().parse::<i32>().unwrap(),
+                            );
+                            for row in data {
+                                println!("{:?}", row);
+                            }
+                        }
+                        "2" => {
+                            let data = generate_table(
+                                db,
+                                "contents",
+                                table_menu.value().to_string().parse::<i32>().unwrap(),
+                            );
+                            for row in data {
+                                println!("{:?}", row);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
                 Message::Table => {}
-                Message::Menu => {}
             }
         }
     }
