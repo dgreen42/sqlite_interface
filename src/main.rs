@@ -103,11 +103,9 @@ mod gui {
 
 mod company {
 
-    use std::any::Any;
-
     use ::fltk::{draw, table::Table};
     use fltk::enums;
-    use rusqlite::{self, Connection, Error};
+    use rusqlite::{self, Connection, Error, Statement};
 
     #[derive(Clone)]
     pub struct Shipment {
@@ -176,7 +174,7 @@ mod company {
             let contents_entry = db
                         .execute(
                             &format!(
-                                "INSERT INTO contents (shipment_id, contents, quantity) VALUES ({}, '{}', '{}')",
+                                "INSERT INTO contents (shipment_id, quantity, contents) VALUES ({}, '{}', '{}')",
                                 &self.shipment_id,
                                 &self.quantity,
                                 &self.contents
@@ -208,57 +206,114 @@ mod company {
         pub contents: String,
     }
 
-    pub fn generate_personel_table(db: Connection) -> Vec<PersonelRow> {
-        let mut table_query = db.prepare(&format!("SELECT * FROM personel")).unwrap();
-        let table_iter = table_query
-            .query_map([], |row| {
-                Ok(PersonelRow {
-                    id: row.get(0).unwrap(),
-                    name: row.get(1).unwrap(),
-                    position: row.get(2).unwrap(),
+    pub fn generate_personel_table(db: Connection, sort: i32) -> Vec<PersonelRow> {
+        fn make_table(mut table_query: Statement<'_>) -> Vec<PersonelRow> {
+            let table_iter = table_query
+                .query_map([], |row| {
+                    Ok(PersonelRow {
+                        id: row.get(0).unwrap(),
+                        name: row.get(1).unwrap(),
+                        position: row.get(2).unwrap(),
+                    })
                 })
-            })
-            .unwrap();
-        let mut table = Vec::new();
-        for row in table_iter {
-            table.push(row.unwrap());
+                .unwrap();
+            let mut table = Vec::new();
+            for row in table_iter {
+                table.push(row.unwrap());
+            }
+            table
         }
-        table
+        if sort == 0 {
+            let table_query = db
+                .prepare(&format!("SELECT * FROM personel ORDER BY id"))
+                .unwrap();
+            println!("{:?}", table_query);
+            make_table(table_query)
+        } else if sort == 1 {
+            let table_query = db
+                .prepare(&format!("SELECT * FROM personel ORDER BY name"))
+                .unwrap();
+            make_table(table_query)
+        } else if sort == 2 {
+            let table_query = db
+                .prepare(&format!("SELECT * FROM personel ORDER BY position"))
+                .unwrap();
+            make_table(table_query)
+        } else {
+            let table_query = db.prepare(&format!("SELECT * FROM personel")).unwrap();
+            make_table(table_query)
+        }
     }
 
-    pub fn generate_shipment_table(db: Connection) -> Vec<ShipmentRow> {
-        let mut table_query = db.prepare(&format!("SELECT * FROM shippments")).unwrap();
-        let table_iter = table_query
-            .query_map([], |row| {
-                Ok(ShipmentRow {
-                    id: row.get(0).unwrap(),
-                    shipment_id: row.get(1).unwrap(),
+    pub fn generate_shipment_table(db: Connection, sort: i32) -> Vec<ShipmentRow> {
+        fn make_table(mut table_query: Statement<'_>) -> Vec<ShipmentRow> {
+            let table_iter = table_query
+                .query_map([], |row| {
+                    Ok(ShipmentRow {
+                        id: row.get(0).unwrap(),
+                        shipment_id: row.get(1).unwrap(),
+                    })
                 })
-            })
-            .unwrap();
-        let mut table = Vec::new();
-        for row in table_iter {
-            table.push(row.unwrap());
+                .unwrap();
+            let mut table = Vec::new();
+            for row in table_iter {
+                table.push(row.unwrap());
+            }
+            table
         }
-        table
+        if sort == 0 {
+            let table_query = db
+                .prepare(&format!("SELECT * FROM shippments ORDER BY id"))
+                .unwrap();
+            make_table(table_query)
+        } else if sort == 4 {
+            let table_query = db
+                .prepare(&format!("SELECT * FROM shippments ORDER BY shipment_id"))
+                .unwrap();
+            make_table(table_query)
+        } else {
+            let table_query = db.prepare(&format!("SELECT * FROM shippments")).unwrap();
+            make_table(table_query)
+        }
     }
 
-    pub fn generate_contents_table(db: Connection) -> Vec<ContentsRow> {
-        let mut table_query = db.prepare("SELECT * FROM contents").unwrap();
-        let table_iter = table_query
-            .query_map([], |row| {
-                Ok(ContentsRow {
-                    shipment_id: row.get(0).unwrap(),
-                    quantity: row.get(1).unwrap(),
-                    contents: row.get(2).unwrap(),
+    pub fn generate_contents_table(db: Connection, sort: i32) -> Vec<ContentsRow> {
+        fn make_table(mut table_query: Statement<'_>) -> Vec<ContentsRow> {
+            let table_iter = table_query
+                .query_map([], |row| {
+                    Ok(ContentsRow {
+                        shipment_id: row.get(0).unwrap(),
+                        quantity: row.get(1).unwrap(),
+                        contents: row.get(2).unwrap(),
+                    })
                 })
-            })
-            .unwrap();
-        let mut table = Vec::new();
-        for row in table_iter {
-            table.push(row.unwrap());
+                .unwrap();
+            let mut table = Vec::new();
+            for row in table_iter {
+                table.push(row.unwrap());
+            }
+            table
         }
-        table
+
+        if sort == 4 {
+            let table_query = db
+                .prepare("SELECT * FROM contents ORDER BY shipment_id")
+                .unwrap();
+            make_table(table_query)
+        } else if sort == 5 {
+            let table_query = db
+                .prepare(&format!("SELECT * FROM contents ORDER BY quantity"))
+                .unwrap();
+            make_table(table_query)
+        } else if sort == 6 {
+            let table_query = db
+                .prepare(&format!("SELECT * FROM contents ORDER BY contents"))
+                .unwrap();
+            make_table(table_query)
+        } else {
+            let table_query = db.prepare("SELECT * FROM contents").unwrap();
+            make_table(table_query)
+        }
     }
 
     pub fn draw_header(txt: &str, x: i32, y: i32, w: i32, h: i32) {
@@ -278,6 +333,8 @@ mod company {
     }
 
     pub fn draw_data(txt: &str, x: i32, y: i32, w: i32, h: i32, selected: bool) {
+        let xyh = 50;
+        let width = 50;
         draw::push_clip(x, y, w, h);
         if selected {
             draw::set_draw_color(enums::Color::from_u32(0x00D3_D3D3));
@@ -290,6 +347,54 @@ mod company {
         draw::draw_text2(txt, x, y, w, h, enums::Align::Center);
         draw::draw_rect(x, y, w, h);
         draw::pop_clip();
+    }
+
+    pub fn matricize_personel(data: Vec<PersonelRow>) -> Vec<Vec<String>> {
+        let mut primary_vec: Vec<Vec<String>> = Vec::new();
+
+        for row in data {
+            let mut secondary_vec: Vec<String> = Vec::new();
+            let string = format!("{},{},{}", row.id, row.name, row.position);
+            let ssplit = string.split(",");
+            for element in ssplit {
+                secondary_vec.push(element.trim().to_string());
+            }
+            primary_vec.push(secondary_vec);
+        }
+        println!("{:?}", primary_vec);
+        primary_vec
+    }
+
+    pub fn matricize_shipment(data: Vec<ShipmentRow>) -> Vec<Vec<String>> {
+        let mut primary_vec: Vec<Vec<String>> = Vec::new();
+
+        for row in data {
+            let mut secondary_vec: Vec<String> = Vec::new();
+            let string = format!("{},{}", row.id, row.shipment_id);
+            let ssplit = string.split(",");
+            for element in ssplit {
+                secondary_vec.push(element.trim().to_string());
+            }
+            primary_vec.push(secondary_vec);
+        }
+        println!("{:?}", primary_vec);
+        primary_vec
+    }
+
+    pub fn matricize_contents(data: Vec<ContentsRow>) -> Vec<Vec<String>> {
+        let mut primary_vec: Vec<Vec<String>> = Vec::new();
+
+        for row in data {
+            let mut secondary_vec: Vec<String> = Vec::new();
+            let string = format!("{},{},{}", row.shipment_id, row.quantity, row.contents);
+            let ssplit = string.split(",");
+            for element in ssplit {
+                secondary_vec.push(element.trim().to_string());
+            }
+            primary_vec.push(secondary_vec);
+        }
+        println!("{:?}", primary_vec);
+        primary_vec
     }
 }
 
@@ -314,10 +419,10 @@ use std::{env::args, io::Bytes, os::unix::fs::FileExt};
 
 fn main() {
     let app = app::App::default();
-    let mut window = Window::new(500, 700, 900, 800, "Sqlite Interface");
+    let mut window = Window::new(500, 700, 1000, 800, "Sqlite Interface");
 
     let flex = Flex::default()
-        .with_size(800, 700)
+        .with_size(900, 700)
         .column()
         .center_of_parent();
 
@@ -381,12 +486,25 @@ fn main() {
         .column()
         .below_of(&flex_db_entry, 20);
 
-    let menu_flex = Flex::new(100, 100, 800, 100, "").center_of_parent();
+    let menu_flex = Flex::new(100, 100, 800, 100, "")
+        .center_of_parent()
+        .column();
 
-    let _space = Frame::default();
-    let _space2 = Frame::new(100, 100, 100, 100, "Select Data to Display");
+    let sub_title_flex = Flex::new(100, 100, 800, 100, "").center_of_parent().row();
+
+    let _sub_title1 = Frame::new(100, 100, 100, 100, "Select Data to Display");
+    let _sub_title2 = Frame::new(100, 100, 100, 100, "Sort By");
+
+    sub_title_flex.end();
+
+    let sub_menu_flex = Flex::new(100, 100, 800, 100, "").center_of_parent().row();
+
     let mut table_menu = MenuBar::new(100, 100, 800, 100, "");
     table_menu.add_choice("Personel|Shipments|Contents");
+    let mut sort_menu = MenuBar::new(100, 100, 800, 100, "").with_align(enums::Align::Right);
+    sort_menu.add_choice("ID|Name|Position|Shipment ID|Quantity|Contents");
+
+    sub_menu_flex.end();
 
     menu_flex.end();
 
@@ -500,89 +618,108 @@ fn main() {
                     assert!(shipment_entry == (1, 1), "Database entry failed");
                 }
 
-                Message::Menu => {
-                    // 0 = personel
-                    // 1 = shipments
-                    // 2 = contents
-                    println!("{:?}", table_menu.value().to_string());
-                }
-                Message::Table => match table_menu.value().to_string().as_ref() {
-                    "0" => {
-                        let data = generate_personel_table(db);
-                        table.set_rows(3);
-                        table.set_cols(data.len().to_string().parse::<i32>().unwrap());
-                        table.draw_cell(move |t, ctx, row, col, x, y, w, h| match ctx {
-                            table::TableContext::StartPage => {
-                                draw::set_font(enums::Font::Helvetica, 14)
-                            }
-                            table::TableContext::ColHeader => {
-                                draw_header(&format!("{}", (col + 5) as u8 as char), x, y, w, h)
-                            }
-                            table::TableContext::RowHeader => {
-                                draw_header(&format!("{}", row + 1), x, y, w, h)
-                            }
-                            table::TableContext::Cell => {
-                                draw_data(
-                                    &format!("{:?}", data[((row - 1) + 1) as usize].position),
+                Message::Menu => {}
+
+                Message::Table => {
+                    let sort_opt = sort_menu.value();
+                    println!("{}", sort_opt);
+                    match table_menu.value().to_string().as_ref() {
+                        // 0 = personel
+                        // 1 = shipments
+                        // 2 = contents
+                        "0" => {
+                            let data = generate_personel_table(db, sort_opt);
+                            table.set_rows(data.len().to_string().parse::<i32>().unwrap());
+                            table.set_cols(3);
+                            let mat_data = matricize_personel(data);
+                            let headers = Vec::from(["ID", "Name", "Position"]);
+                            table.draw_cell(move |t, ctx, row, col, x, y, w, h| match ctx {
+                                table::TableContext::StartPage => {
+                                    draw::set_font(enums::Font::Helvetica, 14)
+                                }
+                                table::TableContext::ColHeader => {
+                                    draw_header(&format!("{}", col as u8 as char), x, y, w, h)
+                                }
+                                table::TableContext::RowHeader => {
+                                    draw_header(&format!("{}", headers[row as usize]), x, y, w, h)
+                                }
+                                table::TableContext::Cell => {
+                                    draw_data(
+                                        &format!("{:?}", mat_data[row as usize][col as usize]),
+                                        x,
+                                        y,
+                                        w,
+                                        h,
+                                        t.is_selected(row, col),
+                                    );
+                                    println!("{} {} {} {}", x, y, w, h);
+                                }
+                                _ => (),
+                            });
+                        }
+                        "1" => {
+                            let data = generate_shipment_table(db, sort_opt);
+                            table.set_rows(data.len().to_string().parse::<i32>().unwrap());
+                            table.set_cols(2);
+                            let mat_data = matricize_shipment(data);
+                            table.draw_cell(move |t, ctx, row, col, x, y, w, h| match ctx {
+                                table::TableContext::StartPage => {
+                                    draw::set_font(enums::Font::Helvetica, 14)
+                                }
+                                table::TableContext::ColHeader => draw_header(
+                                    &format!("{}", (col + 65) as u8 as char),
+                                    x,
+                                    y,
+                                    w,
+                                    h,
+                                ),
+                                table::TableContext::RowHeader => {
+                                    draw_header(&format!("{}", row + 1), x, y, w, h)
+                                }
+                                table::TableContext::Cell => draw_data(
+                                    &format!("{:?}", mat_data[row as usize][col as usize]),
                                     x,
                                     y,
                                     w,
                                     h,
                                     t.is_selected(row, col),
-                                );
-                                println!("{} {} {} {}", x, y, w, h);
-                            }
-                            _ => (),
-                        });
+                                ),
+                                _ => (),
+                            });
+                        }
+                        "2" => {
+                            let data = generate_contents_table(db, sort_opt);
+                            table.set_rows(data.len().to_string().parse::<i32>().unwrap());
+                            table.set_cols(3);
+                            let mat_data = matricize_contents(data);
+                            table.draw_cell(move |t, ctx, row, col, x, y, w, h| match ctx {
+                                table::TableContext::StartPage => {
+                                    draw::set_font(enums::Font::Helvetica, 14)
+                                }
+                                table::TableContext::ColHeader => draw_header(
+                                    &format!("{}", (col + 65) as u8 as char),
+                                    x,
+                                    y,
+                                    w,
+                                    h,
+                                ),
+                                table::TableContext::RowHeader => {
+                                    draw_header(&format!("{}", row + 1), x, y, w, h)
+                                }
+                                table::TableContext::Cell => draw_data(
+                                    &format!("{:?}", mat_data[row as usize][col as usize]),
+                                    x,
+                                    y,
+                                    w,
+                                    h,
+                                    t.is_selected(row, col),
+                                ),
+                                _ => (),
+                            });
+                        }
+                        _ => (),
                     }
-                    "1" => {
-                        let data = generate_shipment_table(db);
-                        table.draw_cell(move |t, ctx, row, col, x, y, w, h| match ctx {
-                            table::TableContext::StartPage => {
-                                draw::set_font(enums::Font::Helvetica, 14)
-                            }
-                            table::TableContext::ColHeader => {
-                                draw_header(&format!("{}", (col + 65) as u8 as char), x, y, w, h)
-                            }
-                            table::TableContext::RowHeader => {
-                                draw_header(&format!("{}", row + 1), x, y, w, h)
-                            }
-                            table::TableContext::Cell => draw_data(
-                                &format!("{:?}", data[(row + 1) as usize].id),
-                                x,
-                                y,
-                                w,
-                                h,
-                                t.is_selected(row, col),
-                            ),
-                            _ => (),
-                        });
-                    }
-                    "2" => {
-                        let data = generate_contents_table(db);
-                        table.draw_cell(move |t, ctx, row, col, x, y, w, h| match ctx {
-                            table::TableContext::StartPage => {
-                                draw::set_font(enums::Font::Helvetica, 14)
-                            }
-                            table::TableContext::ColHeader => {
-                                draw_header(&format!("{}", (col + 65) as u8 as char), x, y, w, h)
-                            }
-                            table::TableContext::RowHeader => {
-                                draw_header(&format!("{}", row + 1), x, y, w, h)
-                            }
-                            table::TableContext::Cell => draw_data(
-                                &format!("{:?}", data[(row + 1) as usize].quantity),
-                                x,
-                                y,
-                                w,
-                                h,
-                                t.is_selected(row, col),
-                            ),
-                            _ => (),
-                        });
-                    }
-                    _ => (),
-                },
+                }
             }
         }
     }
