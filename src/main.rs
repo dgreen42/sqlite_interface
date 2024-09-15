@@ -391,8 +391,6 @@ fn main() {
     menu_flex.end();
 
     let mut table = Table::default().with_size(800, 200);
-    table.set_rows(50);
-    table.set_cols(50);
 
     table.end();
 
@@ -511,27 +509,31 @@ fn main() {
                 Message::Table => match table_menu.value().to_string().as_ref() {
                     "0" => {
                         let data = generate_personel_table(db);
+                        table.set_rows(3);
+                        table.set_cols(data.len().to_string().parse::<i32>().unwrap());
                         table.draw_cell(move |t, ctx, row, col, x, y, w, h| match ctx {
                             table::TableContext::StartPage => {
                                 draw::set_font(enums::Font::Helvetica, 14)
                             }
                             table::TableContext::ColHeader => {
-                                draw_header(&format!("{}", (col + 65) as u8 as char), x, y, w, h)
+                                draw_header(&format!("{}", (col + 5) as u8 as char), x, y, w, h)
                             }
                             table::TableContext::RowHeader => {
                                 draw_header(&format!("{}", row + 1), x, y, w, h)
                             }
-                            table::TableContext::Cell => draw_data(
-                                &format!("{}", row + col),
-                                x,
-                                y,
-                                w,
-                                h,
-                                t.is_selected(row, col),
-                            ),
+                            table::TableContext::Cell => {
+                                draw_data(
+                                    &format!("{:?}", data[((row - 1) + 1) as usize].position),
+                                    x,
+                                    y,
+                                    w,
+                                    h,
+                                    t.is_selected(row, col),
+                                );
+                                println!("{} {} {} {}", x, y, w, h);
+                            }
                             _ => (),
                         });
-                        println!("{:?}", data);
                     }
                     "1" => {
                         let data = generate_shipment_table(db);
@@ -546,7 +548,7 @@ fn main() {
                                 draw_header(&format!("{}", row + 1), x, y, w, h)
                             }
                             table::TableContext::Cell => draw_data(
-                                &format!("{}", row + col),
+                                &format!("{:?}", data[(row + 1) as usize].id),
                                 x,
                                 y,
                                 w,
@@ -555,7 +557,6 @@ fn main() {
                             ),
                             _ => (),
                         });
-                        println!("{:?}", data);
                     }
                     "2" => {
                         let data = generate_contents_table(db);
@@ -570,7 +571,7 @@ fn main() {
                                 draw_header(&format!("{}", row + 1), x, y, w, h)
                             }
                             table::TableContext::Cell => draw_data(
-                                &format!("{}", row + col),
+                                &format!("{:?}", data[(row + 1) as usize].quantity),
                                 x,
                                 y,
                                 w,
@@ -579,7 +580,6 @@ fn main() {
                             ),
                             _ => (),
                         });
-                        println!("{:?}", data);
                     }
                     _ => (),
                 },
