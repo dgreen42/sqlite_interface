@@ -317,6 +317,8 @@ mod company {
     }
 
     pub fn draw_header(txt: &str, x: i32, y: i32, w: i32, h: i32) {
+        let width = 10;
+        let height = 10;
         draw::push_clip(x, y, w, h);
         draw::draw_box(
             enums::FrameType::ThinUpBox,
@@ -333,8 +335,8 @@ mod company {
     }
 
     pub fn draw_data(txt: &str, x: i32, y: i32, w: i32, h: i32, selected: bool) {
-        let xyh = 50;
         let width = 50;
+        let height = 50;
         draw::push_clip(x, y, w, h);
         if selected {
             draw::set_draw_color(enums::Color::from_u32(0x00D3_D3D3));
@@ -508,7 +510,8 @@ fn main() {
 
     menu_flex.end();
 
-    let mut table = Table::default().with_size(800, 200);
+    let mut table = Table::default();
+    table.make_resizable(true);
 
     table.end();
 
@@ -598,6 +601,7 @@ fn main() {
                 )),
 
                 Message::User => {
+                    println!("{:?}", &id1.value());
                     let personel = generate_personel(
                         &id1.value().parse().unwrap(),
                         &name.value(),
@@ -638,10 +642,10 @@ fn main() {
                                     draw::set_font(enums::Font::Helvetica, 14)
                                 }
                                 table::TableContext::ColHeader => {
-                                    draw_header(&format!("{}", col as u8 as char), x, y, w, h)
+                                    draw_header(&format!("{}", headers[col as usize]), x, y, w, h)
                                 }
                                 table::TableContext::RowHeader => {
-                                    draw_header(&format!("{}", headers[row as usize]), x, y, w, h)
+                                    draw_header(&format!("{}", row + 1), x, y, w, h)
                                 }
                                 table::TableContext::Cell => {
                                     draw_data(
